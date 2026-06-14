@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Notify Plus</string>
+    <string name="notification_listener_label">notify-plus deal filter</string>
+</resources>

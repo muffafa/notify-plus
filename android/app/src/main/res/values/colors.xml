@@ -1,0 +1,5 @@
+<resources>
+    <!-- Launcher icon background (orange). The IN-APP logo color is configurable at runtime; the
+         launcher icon background is fixed at build time. -->
+    <color name="ic_launcher_background">#F97316</color>
+</resources>
