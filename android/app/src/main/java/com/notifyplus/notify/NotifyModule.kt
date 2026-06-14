@@ -3,6 +3,7 @@ package com.notifyplus.notify
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -175,6 +176,43 @@ class NotifyModule(private val reactContext: ReactApplicationContext) :
     promise.resolve(Build.MANUFACTURER ?: "")
   }
 
+  // ---- Launcher icon color variant (activity-alias switching) ----
+
+  /**
+   * Switch the home-screen launcher icon to a predefined color variant by enabling exactly one
+   * activity-alias and disabling the others. Uses DONT_KILL_APP so the running app survives; the
+   * launcher refreshes the icon shortly after (timing is launcher-dependent).
+   */
+  @ReactMethod
+  fun setLauncherIconVariant(name: String, promise: Promise) {
+    try {
+      val pm = reactContext.packageManager
+      val pkg = reactContext.packageName
+      val target = ICON_VARIANTS.firstOrNull { it.equals(name, ignoreCase = true) }
+      if (target == null) {
+        promise.reject("E_ICON", "Unknown launcher icon variant: $name")
+        return
+      }
+      // Enable the target first so there is never a moment with zero launcher entries.
+      pm.setComponentEnabledSetting(
+        ComponentName(pkg, "$pkg.Icon$target"),
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+        PackageManager.DONT_KILL_APP,
+      )
+      for (v in ICON_VARIANTS) {
+        if (v == target) continue
+        pm.setComponentEnabledSetting(
+          ComponentName(pkg, "$pkg.Icon$v"),
+          PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+          PackageManager.DONT_KILL_APP,
+        )
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("E_ICON", e)
+    }
+  }
+
   // ---- Telegram detection ----
 
   @ReactMethod
@@ -282,5 +320,9 @@ class NotifyModule(private val reactContext: ReactApplicationContext) :
 
   companion object {
     const val EVENT_NAME = "NotifyEvent"
+
+    /** Must match the <activity-alias> names (".Icon<Variant>") in AndroidManifest.xml. */
+    private val ICON_VARIANTS =
+      listOf("Orange", "Blue", "Green", "Red", "Purple", "Sky", "Yellow", "Dark")
   }
 }

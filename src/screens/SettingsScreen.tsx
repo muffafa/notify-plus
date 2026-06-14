@@ -13,7 +13,17 @@ import { Logo } from '../ui/Logo';
 import { colors, radius, space } from '../ui/theme';
 import type { ChannelStatus } from '../types';
 
-const COLOR_PRESETS = ['#F97316', '#3B82F6', '#22C55E', '#EF4444', '#A855F7', '#0EA5E9', '#EAB308', '#111827'];
+// Preset hex -> launcher icon variant (must match the <activity-alias> names in AndroidManifest).
+const COLOR_VARIANTS: { hex: string; variant: string }[] = [
+  { hex: '#F97316', variant: 'Orange' },
+  { hex: '#3B82F6', variant: 'Blue' },
+  { hex: '#22C55E', variant: 'Green' },
+  { hex: '#EF4444', variant: 'Red' },
+  { hex: '#A855F7', variant: 'Purple' },
+  { hex: '#0EA5E9', variant: 'Sky' },
+  { hex: '#EAB308', variant: 'Yellow' },
+  { hex: '#111827', variant: 'Dark' },
+];
 
 export function SettingsScreen({
   onResetOnboarding,
@@ -42,6 +52,8 @@ export function SettingsScreen({
     (hex: string) => {
       setLogoColor(hex);
       setHexDraft(hex);
+      const v = COLOR_VARIANTS.find((c) => c.hex.toLowerCase() === hex.toLowerCase());
+      if (v) Notify.setLauncherIconVariant(v.variant).catch(() => {});
     },
     [setLogoColor],
   );
@@ -122,17 +134,19 @@ export function SettingsScreen({
           </View>
         </View>
         <View style={styles.swatches}>
-          {COLOR_PRESETS.map((p) => (
+          {COLOR_VARIANTS.map(({ hex }) => (
             <Pressable
-              key={p}
-              onPress={() => applyColor(p)}
+              key={hex}
+              onPress={() => applyColor(hex)}
               style={[
                 styles.swatch,
-                { backgroundColor: p, borderColor: logoColor === p ? colors.text : colors.border },
+                { backgroundColor: hex, borderColor: logoColor === hex ? colors.text : colors.border },
               ]}
             />
           ))}
         </View>
+        <View style={{ height: space(2) }} />
+        <Muted>{t('set.brandLauncherNote')}</Muted>
         <View style={{ height: space(2) }} />
         <Button variant="ghost" title={t('set.brandReset')} onPress={() => applyColor(DEFAULT_LOGO_COLOR)} />
       </Card>
