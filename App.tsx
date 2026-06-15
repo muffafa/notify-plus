@@ -26,10 +26,11 @@ import { Logo } from './src/ui/Logo';
 import { colors, space } from './src/ui/theme';
 
 type Phase = 'loading' | 'onboarding' | 'app';
-type Tab = 'center' | 'rules' | 'settings';
+type Tab = 'center' | 'other' | 'rules' | 'settings';
 
 const TABS: { key: Tab; labelKey: string; titleKey: string }[] = [
   { key: 'center', labelKey: 'tab.deals', titleKey: 'title.center' },
+  { key: 'other', labelKey: 'tab.other', titleKey: 'title.other' },
   { key: 'rules', labelKey: 'tab.rules', titleKey: 'title.rules' },
   { key: 'settings', labelKey: 'tab.settings', titleKey: 'title.settings' },
 ];
@@ -85,7 +86,8 @@ function AppInner(): React.JSX.Element {
               <Text style={styles.header}>{activeTitle}</Text>
             </View>
             <View style={styles.content}>
-              {tab === 'center' && <CenterScreen />}
+              {tab === 'center' && <CenterScreen kind="matched" />}
+              {tab === 'other' && <CenterScreen kind="other" />}
               {tab === 'rules' && <RulesScreen />}
               {tab === 'settings' && (
                 <SettingsScreen onResetOnboarding={() => setPhase('onboarding')} />

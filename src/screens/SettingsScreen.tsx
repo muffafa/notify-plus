@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { CHANGELOG } from '../changelog';
 import { clearMessages, messageCount } from '../db/db';
 import { useAppStatus } from '../hooks/useAppStatus';
 import { useI18n } from '../i18n/i18n';
@@ -34,6 +35,8 @@ export function SettingsScreen({
   const { logoColor, setLogoColor } = useBrand();
   const { status, refresh } = useAppStatus();
   const [diagnostic, setDiagnostic] = useState(false);
+  const [manageAll, setManageAll] = useState(true);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [count, setCount] = useState(0);
   const [channelStatuses, setChannelStatuses] = useState<Record<string, ChannelStatus>>({});
   const [hexDraft, setHexDraft] = useState(logoColor);
@@ -61,6 +64,7 @@ export function SettingsScreen({
   const loadExtras = useCallback(async () => {
     try {
       setDiagnostic(await Notify.isDiagnosticMode());
+      setManageAll((await Notify.getPref('manageAll')) !== 'false');
       setCount(await messageCount());
       const entries = await Promise.all(
         PRESET_CHANNELS.map(async (c) => [c.id, await Notify.getChannelStatus(c.id)] as const),
@@ -78,6 +82,11 @@ export function SettingsScreen({
   const onToggleDiagnostic = useCallback(async (v: boolean) => {
     setDiagnostic(v);
     await Notify.setDiagnosticMode(v);
+  }, []);
+
+  const onToggleManageAll = useCallback(async (v: boolean) => {
+    setManageAll(v);
+    await Notify.setPref('manageAll', v ? 'true' : 'false');
   }, []);
 
   const onClearHistory = useCallback(() => {
@@ -195,6 +204,17 @@ export function SettingsScreen({
         })}
       </Card>
 
+      <SectionTitle>{t('set.manage')}</SectionTitle>
+      <Card>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Body>{t('set.manageAll')}</Body>
+            <Muted>{t('set.manageAllDesc')}</Muted>
+          </View>
+          <Switch value={manageAll} onValueChange={onToggleManageAll} />
+        </View>
+      </Card>
+
       <SectionTitle>{t('set.diagnostic')}</SectionTitle>
       <Card>
         <View style={styles.toggleRow}>
@@ -211,6 +231,27 @@ export function SettingsScreen({
         <Body>{t('set.archived', { n: count })}</Body>
         <View style={{ height: space(3) }} />
         <Button variant="danger" title={t('set.clearHistory')} onPress={onClearHistory} />
+      </Card>
+
+      <SectionTitle>{t('set.changelog')}</SectionTitle>
+      <Card>
+        {CHANGELOG.map((entry, i) => (
+          <View key={entry.version}>
+            {i > 0 && <View style={styles.clDivider} />}
+            <Pressable style={styles.clHeader} onPress={() => setChangelogOpen((o) => !o)}>
+              <Text style={styles.clVersion}>v{entry.version}</Text>
+              <Muted>{entry.date}</Muted>
+              <Text style={styles.clChevron}>{changelogOpen ? '▲' : '▼'}</Text>
+            </Pressable>
+            {changelogOpen &&
+              (lang === 'tr' ? entry.tr : entry.en).map((item, j) => (
+                <View key={j} style={styles.clItem}>
+                  <Text style={styles.clBullet}>·</Text>
+                  <Muted style={{ flex: 1 }}>{item}</Muted>
+                </View>
+              ))}
+          </View>
+        ))}
       </Card>
 
       <SectionTitle>{t('set.privacy')}</SectionTitle>
@@ -245,4 +286,10 @@ const styles = StyleSheet.create({
   invalid: { color: colors.warn, fontSize: 12, marginTop: space(1) },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: space(2), marginTop: space(3) },
   swatch: { width: 34, height: 34, borderRadius: radius.sm, borderWidth: 2 },
+  clHeader: { flexDirection: 'row', alignItems: 'center', gap: space(2), paddingVertical: space(1) },
+  clVersion: { color: colors.text, fontWeight: '700', fontSize: 15 },
+  clChevron: { marginLeft: 'auto', color: colors.textDim, fontSize: 12 },
+  clItem: { flexDirection: 'row', gap: space(2), paddingLeft: space(2), marginTop: space(1) },
+  clBullet: { color: colors.textDim, lineHeight: 20 },
+  clDivider: { height: 1, backgroundColor: colors.border, marginVertical: space(2) },
 });

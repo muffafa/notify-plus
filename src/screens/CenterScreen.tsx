@@ -21,11 +21,11 @@ import { useI18n } from '../i18n/i18n';
 import { Muted, SectionTitle } from '../ui/components';
 import { SwipeableRow } from '../ui/SwipeableRow';
 import { colors, radius, space } from '../ui/theme';
-import type { ArchivedMessage, NotifyEvent } from '../types';
+import type { ArchivedMessage, MessageKind, NotifyEvent } from '../types';
 
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function CenterScreen(): React.JSX.Element {
+export function CenterScreen({ kind = 'matched' }: { kind?: MessageKind }): React.JSX.Element {
   const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<ArchivedMessage[]>([]);
@@ -34,10 +34,13 @@ export function CenterScreen(): React.JSX.Element {
   const queryRef = useRef(query);
   queryRef.current = query;
 
-  const load = useCallback(async (q: string) => {
-    const data = q.trim() ? await searchMessages(q) : await recentMessages(200);
-    setItems(data);
-  }, []);
+  const load = useCallback(
+    async (q: string) => {
+      const data = q.trim() ? await searchMessages(q, kind) : await recentMessages(kind, 200);
+      setItems(data);
+    },
+    [kind],
+  );
 
   const syncAndLoad = useCallback(async () => {
     try {
@@ -62,13 +65,13 @@ export function CenterScreen(): React.JSX.Element {
     };
   }, [query, load]);
 
-  // Live updates: when a new match arrives, drain + reload.
+  // Live updates: when a new message of this tab's kind arrives, drain + reload.
   useNotifyEvents(
     useCallback(
       (e: NotifyEvent) => {
-        if (e.type === 'matched') syncAndLoad();
+        if (e.type === kind) syncAndLoad();
       },
-      [syncAndLoad],
+      [syncAndLoad, kind],
     ),
   );
 
@@ -92,11 +95,11 @@ export function CenterScreen(): React.JSX.Element {
         style: 'destructive',
         onPress: async () => {
           setItems([]);
-          await clearMessages().catch(() => {});
+          await clearMessages(kind).catch(() => {});
         },
       },
     ]);
-  }, [t]);
+  }, [t, kind]);
 
   return (
     <View style={styles.root}>
@@ -126,8 +129,10 @@ export function CenterScreen(): React.JSX.Element {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textDim} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <SectionTitle>{t('center.emptyTitle')}</SectionTitle>
-            <Muted>{t('center.emptyBody')}</Muted>
+            <SectionTitle>
+              {kind === 'other' ? t('center.emptyOtherTitle') : t('center.emptyTitle')}
+            </SectionTitle>
+            <Muted>{kind === 'other' ? t('center.emptyOtherBody') : t('center.emptyBody')}</Muted>
           </View>
         }
         renderItem={({ item }) => <MessageRow item={item} onDelete={onDelete} />}
