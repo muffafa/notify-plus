@@ -23,6 +23,8 @@ interface NativeNotify {
   openBatteryOptimizationSettings(): Promise<boolean>;
   openAppDetailsSettings(): Promise<boolean>;
   getManufacturer(): Promise<string>;
+  // Launcher icon
+  setLauncherIconVariant(name: string): Promise<boolean>;
   // Telegram detection
   getInstalledTelegramPackages(): Promise<string>;
   // Rules / prefs
@@ -93,6 +95,9 @@ export const Notify = {
   openBatteryOptimizationSettings: () => require_().openBatteryOptimizationSettings(),
   openAppDetailsSettings: () => require_().openAppDetailsSettings(),
   getManufacturer: () => require_().getManufacturer(),
+
+  // ---- Launcher icon variant ----
+  setLauncherIconVariant: (name: string) => require_().setLauncherIconVariant(name),
 
   // ---- Telegram detection ----
   async getInstalledTelegramPackages(): Promise<TelegramApp[]> {

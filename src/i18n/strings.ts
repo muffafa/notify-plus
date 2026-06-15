@@ -160,6 +160,8 @@ const en: Dict = {
   'set.brandDesc': 'Set the logo background color as a hex code.',
   'set.brandInvalid': 'Enter a valid hex, e.g. #F97316',
   'set.brandReset': 'Reset to orange',
+  'set.brandLauncherNote':
+    'Tapping a preset swatch also recolors the home-screen icon (may take a few seconds). A custom hex changes only the in-app logo.',
 };
 
 const tr: Dict = {
@@ -309,6 +311,8 @@ const tr: Dict = {
   'set.brandDesc': 'Logo arka plan rengini hex kodu olarak ayarla.',
   'set.brandInvalid': 'Geçerli bir hex gir, örn. #F97316',
   'set.brandReset': 'Turuncuya sıfırla',
+  'set.brandLauncherNote':
+    'Hazır renge dokununca ana ekran ikonu da değişir (birkaç saniye sürebilir). Serbest hex sadece uygulama içi logoyu değiştirir.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { tr, en };
