@@ -17,7 +17,7 @@ import { PRESET_CHANNELS } from '../rules/channels';
 import { emptyRule, loadRules, newRuleId, saveRules } from '../rules/rules';
 import { Body, Button, Card, Muted, SectionTitle, Tag } from '../ui/components';
 import { colors, radius, space } from '../ui/theme';
-import type { Rule, RuleMode } from '../types';
+import type { Rule } from '../types';
 
 const MAX_KW_COUNT = 256;
 const MAX_KW_LEN = 256;
@@ -37,7 +37,6 @@ function sanitizeImported(raw: unknown): Rule[] {
         id: newRuleId(),
         ...(typeof r.name === 'string' && { name: r.name }),
         ...(typeof r.enabled === 'boolean' && { enabled: r.enabled }),
-        ...(typeof r.mode === 'string' && (r.mode === 'keywords' || r.mode === 'all') && { mode: r.mode }),
         ...(Array.isArray(r.sourcePackages) && { sourcePackages: strArr(r.sourcePackages) }),
         ...(Array.isArray(r.sourceTitleContains) && { sourceTitleContains: strArr(r.sourceTitleContains) }),
         keywords: strArr(r.keywords).slice(0, MAX_KW_COUNT),
@@ -45,9 +44,30 @@ function sanitizeImported(raw: unknown): Rule[] {
         ...(typeof r.channelId === 'string' && { channelId: r.channelId }),
         ...(typeof r.suppressOriginal === 'boolean' && { suppressOriginal: r.suppressOriginal }),
         ...(typeof r.searchTitle === 'boolean' && { searchTitle: r.searchTitle }),
-        ...(typeof r.exactWord === 'boolean' && { exactWord: r.exactWord }),
+        ...(typeof r.exactWordKw === 'boolean' && { exactWordKw: r.exactWordKw }),
+        ...(typeof r.exactWordExclude === 'boolean' && { exactWordExclude: r.exactWordExclude }),
+        ...(typeof r.punctuationBoundary === 'boolean' && { punctuationBoundary: r.punctuationBoundary }),
         ...(typeof r.caseSensitive === 'boolean' && { caseSensitive: r.caseSensitive }),
         ...(typeof r.turkishSensitive === 'boolean' && { turkishSensitive: r.turkishSensitive }),
+        // Exclude-side options: fall back to the keyword-side value for rules exported before the split.
+        punctuationBoundaryExclude:
+          typeof r.punctuationBoundaryExclude === 'boolean'
+            ? r.punctuationBoundaryExclude
+            : typeof r.punctuationBoundary === 'boolean'
+              ? r.punctuationBoundary
+              : base.punctuationBoundaryExclude,
+        caseSensitiveExclude:
+          typeof r.caseSensitiveExclude === 'boolean'
+            ? r.caseSensitiveExclude
+            : typeof r.caseSensitive === 'boolean'
+              ? r.caseSensitive
+              : base.caseSensitiveExclude,
+        turkishSensitiveExclude:
+          typeof r.turkishSensitiveExclude === 'boolean'
+            ? r.turkishSensitiveExclude
+            : typeof r.turkishSensitive === 'boolean'
+              ? r.turkishSensitive
+              : base.turkishSensitiveExclude,
         ...(typeof r.requireAllKeywords === 'boolean' && { requireAllKeywords: r.requireAllKeywords }),
       };
     });
@@ -145,12 +165,7 @@ export function RulesScreen(): React.JSX.Element {
             <View style={styles.ruleHeader}>
               <Pressable style={{ flex: 1 }} onPress={() => setEditing(rule)}>
                 <Text style={styles.ruleName}>{rule.name}</Text>
-                <Muted>
-                  {rule.mode === 'all'
-                    ? t('rules.modeAll')
-                    : t('rules.keywordCount', { n: rule.keywords.length })}
-                  {`  ·  ${t('channel.' + rule.channelId)}`}
-                </Muted>
+                <Muted>{t('rules.keywordCount', { n: rule.keywords.length })}{`  ·  ${t('channel.' + rule.channelId)}`}</Muted>
               </Pressable>
               <Switch value={rule.enabled} onValueChange={(v) => onToggle(rule.id, v)} />
             </View>
@@ -268,7 +283,14 @@ function RuleEditor({
     ? testResult.keyword
       ? t('rules.wouldMatchKw', { kw: testResult.keyword })
       : t('rules.wouldMatch')
-    : t('rules.wouldNot');
+    : testResult.excludedBy
+      ? t('rules.excludedBy', { kw: testResult.excludedBy })
+      : t('rules.wouldNot');
+  const testColor = testResult.matched
+    ? colors.success
+    : testResult.excludedBy
+      ? colors.danger
+      : colors.textDim;
 
   const onShareRule = useCallback(async () => {
     await Share.share({ message: JSON.stringify([rule], null, 2) });
@@ -288,55 +310,93 @@ function RuleEditor({
         />
       </Card>
 
+      {/* ── Keywords ───────────────────────────────────────── */}
       <Card>
-        <FieldLabel text={t('rules.matchMode')} />
-        <View style={styles.segment}>
-          {(['keywords', 'all'] as RuleMode[]).map((m) => (
-            <SegBtn
-              key={m}
-              active={rule.mode === m}
-              label={m === 'keywords' ? t('rules.byKeywords') : t('rules.allFromSources')}
-              onPress={() => update({ mode: m })}
-            />
-          ))}
-        </View>
-        {rule.mode === 'keywords' ? (
-          <>
-            <View style={{ height: space(3) }} />
-            <FieldLabel text={t('rules.keywords')} />
-            <TagEditor
-              values={rule.keywords}
-              onChange={(keywords) => update({ keywords })}
-              placeholder={t('rules.keywordsPh')}
-              maxCount={MAX_KW_COUNT}
-              maxLen={MAX_KW_LEN}
-            />
-            <View style={{ height: space(3) }} />
-            <FieldLabel text={t('rules.exclude')} />
-            <TagEditor
-              values={rule.excludeKeywords}
-              onChange={(excludeKeywords) => update({ excludeKeywords })}
-              placeholder={t('rules.excludePh')}
-              maxCount={MAX_KW_COUNT}
-              maxLen={MAX_KW_LEN}
-            />
-            <View style={{ height: space(3) }} />
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Body>{t('rules.requireAll')}</Body>
-                <Muted>{t('rules.requireAllDesc')}</Muted>
-              </View>
-              <Switch
-                value={rule.requireAllKeywords ?? false}
-                onValueChange={(v) => update({ requireAllKeywords: v })}
-              />
-            </View>
-          </>
-        ) : (
-          <Muted>{t('rules.allNote')}</Muted>
-        )}
+        <FieldLabel text={t('rules.keywords')} />
+        <TagEditor
+          values={rule.keywords}
+          onChange={(keywords) => update({ keywords })}
+          placeholder={t('rules.keywordsPh')}
+          maxCount={MAX_KW_COUNT}
+          maxLen={MAX_KW_LEN}
+        />
+        <ToggleRow
+          label={t('rules.requireAll')}
+          desc={t('rules.requireAllDesc')}
+          value={rule.requireAllKeywords ?? false}
+          onChange={(v) => update({ requireAllKeywords: v })}
+        />
+        <View style={styles.optDivider} />
+        <ToggleRow
+          label={t('rules.searchTitle')}
+          desc={t('rules.searchTitleDesc')}
+          value={rule.searchTitle ?? true}
+          onChange={(v) => update({ searchTitle: v })}
+        />
+        <ToggleRow
+          label={t('rules.exactWordKw')}
+          desc={t('rules.exactWordKwDesc')}
+          value={rule.exactWordKw ?? false}
+          onChange={(v) => update({ exactWordKw: v })}
+        />
+        <ToggleRow
+          label={t('rules.punctBoundary')}
+          desc={t('rules.punctBoundaryDesc')}
+          value={rule.punctuationBoundary ?? true}
+          onChange={(v) => update({ punctuationBoundary: v })}
+        />
+        <ToggleRow
+          label={t('rules.caseSensitive')}
+          desc={t('rules.caseSensitiveDesc')}
+          value={rule.caseSensitive ?? false}
+          onChange={(v) => update({ caseSensitive: v })}
+        />
+        <ToggleRow
+          label={t('rules.turkishSensitive')}
+          desc={t('rules.turkishSensitiveDesc')}
+          value={rule.turkishSensitive ?? false}
+          onChange={(v) => update({ turkishSensitive: v })}
+        />
       </Card>
 
+      {/* ── Exclude keywords (own independent matching options) ─ */}
+      <Card>
+        <FieldLabel text={t('rules.exclude')} />
+        <TagEditor
+          values={rule.excludeKeywords}
+          onChange={(excludeKeywords) => update({ excludeKeywords })}
+          placeholder={t('rules.excludePh')}
+          maxCount={MAX_KW_COUNT}
+          maxLen={MAX_KW_LEN}
+        />
+        <View style={styles.optDivider} />
+        <ToggleRow
+          label={t('rules.exactWordExclude')}
+          desc={t('rules.exactWordExcludeDesc')}
+          value={rule.exactWordExclude ?? false}
+          onChange={(v) => update({ exactWordExclude: v })}
+        />
+        <ToggleRow
+          label={t('rules.punctBoundary')}
+          desc={t('rules.punctBoundaryDesc')}
+          value={rule.punctuationBoundaryExclude ?? true}
+          onChange={(v) => update({ punctuationBoundaryExclude: v })}
+        />
+        <ToggleRow
+          label={t('rules.caseSensitive')}
+          desc={t('rules.caseSensitiveDesc')}
+          value={rule.caseSensitiveExclude ?? false}
+          onChange={(v) => update({ caseSensitiveExclude: v })}
+        />
+        <ToggleRow
+          label={t('rules.turkishSensitive')}
+          desc={t('rules.turkishSensitiveDesc')}
+          value={rule.turkishSensitiveExclude ?? false}
+          onChange={(v) => update({ turkishSensitiveExclude: v })}
+        />
+      </Card>
+
+      {/* ── Channel filter ──────────────────────────────────── */}
       <Card>
         <FieldLabel text={t('rules.channelFilter')} />
         <Muted>{t('rules.channelFilterDesc')}</Muted>
@@ -347,37 +407,6 @@ function RuleEditor({
           placeholder={t('rules.channelFilterPh')}
           maxCount={MAX_KW_COUNT}
           maxLen={MAX_KW_LEN}
-        />
-      </Card>
-
-      <Card>
-        <FieldLabel text={t('rules.matchOptions')} />
-        <ToggleRow
-          label={t('rules.searchTitle')}
-          desc={t('rules.searchTitleDesc')}
-          value={rule.searchTitle ?? true}
-          onChange={(v) => update({ searchTitle: v })}
-        />
-        <View style={{ height: space(2) }} />
-        <ToggleRow
-          label={t('rules.exactWord')}
-          desc={t('rules.exactWordDesc')}
-          value={rule.exactWord ?? false}
-          onChange={(v) => update({ exactWord: v })}
-        />
-        <View style={{ height: space(2) }} />
-        <ToggleRow
-          label={t('rules.caseSensitive')}
-          desc={t('rules.caseSensitiveDesc')}
-          value={rule.caseSensitive ?? false}
-          onChange={(v) => update({ caseSensitive: v })}
-        />
-        <View style={{ height: space(2) }} />
-        <ToggleRow
-          label={t('rules.turkishSensitive')}
-          desc={t('rules.turkishSensitiveDesc')}
-          value={rule.turkishSensitive ?? false}
-          onChange={(v) => update({ turkishSensitive: v })}
         />
       </Card>
 
@@ -413,7 +442,7 @@ function RuleEditor({
           multiline
         />
         <View style={{ height: space(2) }} />
-        <Text style={{ color: testResult.matched ? colors.success : colors.textDim, fontWeight: '600' }}>
+        <Text style={{ color: testColor, fontWeight: '600' }}>
           {testLabel}
         </Text>
       </Card>
@@ -611,6 +640,17 @@ const styles = StyleSheet.create({
   tagWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: space(2) },
   warnText: { color: colors.warn, fontSize: 12, marginTop: space(1) },
   countText: { color: colors.textDim, fontSize: 11, marginTop: space(1), textAlign: 'right' },
+  // Match options sub-groups
+  optGroup: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginTop: space(2),
+    marginBottom: space(1),
+    textTransform: 'uppercase',
+  },
+  optDivider: { height: 1, backgroundColor: colors.border, marginVertical: space(2) },
   // Import modal
   modalOverlay: {
     flex: 1,

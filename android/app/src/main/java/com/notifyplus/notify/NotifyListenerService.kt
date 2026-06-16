@@ -119,21 +119,22 @@ class NotifyListenerService : NotificationListenerService() {
   ) {
     val body = msg.text
 
-    var matched: MatchResult? = null
-    for (rule in rules) {
+    var match: EvalResult.Match? = null
+    var firstExclusion: EvalResult.Excluded? = null
+    ruleLoop@ for (rule in rules) {
       if (!TextMatcher.sourceMatches(rule, pkg, title)) continue
-      val r = TextMatcher.evaluate(rule, title, body)
-      if (r != null) {
-        matched = r
-        break
+      when (val r = TextMatcher.evaluate(rule, title, body)) {
+        is EvalResult.Match -> { match = r; break@ruleLoop }
+        is EvalResult.Excluded -> { if (firstExclusion == null) firstExclusion = r }
+        EvalResult.NoMatch -> Unit
       }
     }
 
     val postedAt = if (msg.time > 0L) msg.time else System.currentTimeMillis()
     val generic = body.isBlank()
 
-    if (matched != null) {
-      val rule = matched.rule
+    if (match != null) {
+      val rule = match.rule
       // Reuse Telegram's own content intent so tapping our notification opens the original message.
       Notifications.postMatch(this, rule.channelId, title.ifBlank { rule.name }, body, originalIntent)
       pendingStore.insert(
@@ -142,14 +143,32 @@ class NotifyListenerService : NotificationListenerService() {
         sourcePackage = pkg,
         sourceTitle = title,
         body = body,
-        matchedKeyword = matched.matchedKeyword,
+        matchedKeyword = match.keyword,
         postedAt = postedAt,
         sbnKey = key,
         kind = "matched",
       )
       if (rule.suppressOriginal || manageAll) tryCancel(key)
       NotifyEventBus.emit(
-        eventJson("matched", true, rule, matched.matchedKeyword, pkg, title, body, generic, postedAt)
+        eventJson("matched", true, rule, match.keyword, pkg, title, body, generic, postedAt)
+      )
+    } else if (firstExclusion != null && manageAll) {
+      // Excluded by a keyword rule: archive into the "Other" tab with exclusion metadata.
+      val rule = firstExclusion.rule
+      pendingStore.insert(
+        ruleId = rule.id,
+        ruleName = rule.name,
+        sourcePackage = pkg,
+        sourceTitle = title,
+        body = body,
+        matchedKeyword = firstExclusion.byKeyword,
+        postedAt = postedAt,
+        sbnKey = key,
+        kind = "excluded",
+      )
+      tryCancel(key)
+      NotifyEventBus.emit(
+        eventJson("excluded", false, rule, firstExclusion.byKeyword, pkg, title, body, generic, postedAt)
       )
     } else if (manageAll) {
       // No keyword match: archive into the "Other" tab and hide the original Telegram notification.

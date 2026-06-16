@@ -12,8 +12,6 @@ val DEFAULT_TELEGRAM_PACKAGES = setOf(
   "org.thunderdog.challegram",
 )
 
-enum class RuleMode { KEYWORDS, ALL }
-
 /**
  * One watch rule. JSON contract shared verbatim with the JS layer (src/types.ts).
  * Matching/normalization is applied to keywords and the notification text; original text is
@@ -27,8 +25,7 @@ data class Rule(
   val sourcePackages: Set<String>,
   /** Notification title (chat/channel name) must contain ANY of these (normalized). Empty => any. */
   val sourceTitleContains: List<String>,
-  val mode: RuleMode,
-  /** Normalized at match time. mode=KEYWORDS requires at least one to be present. */
+  /** At least one keyword must be present in the text for this rule to match. */
   val keywords: List<String>,
   /** If any is present in the text, the message is skipped even if a keyword matched. */
   val excludeKeywords: List<String>,
@@ -38,12 +35,22 @@ data class Rule(
   val suppressOriginal: Boolean,
   /** Include the notification title (channel name) in keyword search. Default: true */
   val searchTitle: Boolean,
-  /** Keywords must appear as whole words surrounded by spaces. Default: false */
-  val exactWord: Boolean,
-  /** Keyword matching is case-sensitive. Default: false */
+  /** Keywords must appear as whole words (space/punctuation boundary). Default: false */
+  val exactWordKw: Boolean,
+  /** Exclude keywords must appear as whole words (space/punctuation boundary). Default: false */
+  val exactWordExclude: Boolean,
+  /** [Keywords] Treat . , : ; ! ? ( ) [ ] " ' as word boundaries. Default: true */
+  val punctuationBoundary: Boolean,
+  /** [Keywords] Matching is case-sensitive. Default: false */
   val caseSensitive: Boolean,
-  /** Turkish characters are kept distinct from their Latin equivalents. Default: false */
+  /** [Keywords] Turkish characters are kept distinct from their Latin equivalents. Default: false */
   val turkishSensitive: Boolean,
+  /** [Excludes] Treat punctuation as word boundaries for exclude keywords. Default: true */
+  val punctuationBoundaryExclude: Boolean,
+  /** [Excludes] Exclude matching is case-sensitive. Default: false */
+  val caseSensitiveExclude: Boolean,
+  /** [Excludes] Turkish characters are kept distinct for exclude keywords. Default: false */
+  val turkishSensitiveExclude: Boolean,
   /** ALL keywords must be present (AND logic). Default: false = ANY (OR logic) */
   val requireAllKeywords: Boolean,
 ) {
@@ -57,15 +64,23 @@ data class Rule(
       name = o.optString("name", "Rule"),
       sourcePackages = o.optJSONArray("sourcePackages").toStringSet(),
       sourceTitleContains = o.optJSONArray("sourceTitleContains").toStringList(),
-      mode = if (o.optString("mode", "keywords") == "all") RuleMode.ALL else RuleMode.KEYWORDS,
       keywords = o.optJSONArray("keywords").toStringList(),
       excludeKeywords = o.optJSONArray("excludeKeywords").toStringList(),
       channelId = o.optString("channelId", DEFAULT_CHANNEL_ID),
       suppressOriginal = o.optBoolean("suppressOriginal", false),
       searchTitle = o.optBoolean("searchTitle", true),
-      exactWord = o.optBoolean("exactWord", false),
+      exactWordKw = o.optBoolean("exactWordKw", o.optBoolean("exactWord", false)),
+      exactWordExclude = o.optBoolean("exactWordExclude", false),
+      punctuationBoundary = o.optBoolean("punctuationBoundary", true),
       caseSensitive = o.optBoolean("caseSensitive", false),
       turkishSensitive = o.optBoolean("turkishSensitive", false),
+      // Exclude-side options fall back to the keyword-side value for rules saved before the split.
+      punctuationBoundaryExclude =
+        o.optBoolean("punctuationBoundaryExclude", o.optBoolean("punctuationBoundary", true)),
+      caseSensitiveExclude =
+        o.optBoolean("caseSensitiveExclude", o.optBoolean("caseSensitive", false)),
+      turkishSensitiveExclude =
+        o.optBoolean("turkishSensitiveExclude", o.optBoolean("turkishSensitive", false)),
       requireAllKeywords = o.optBoolean("requireAllKeywords", false),
     )
 

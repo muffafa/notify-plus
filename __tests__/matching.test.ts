@@ -48,10 +48,19 @@ describe('keyword matching', () => {
     expect(evaluateRule(rule, '', 'iPhone kılıfı indirim').matched).toBe(false);
   });
 
-  it('all-mode matches anything but still honors excludes', () => {
-    const rule = base({ mode: 'all', excludeKeywords: ['reklam'] });
-    expect(evaluateRule(rule, '', 'herhangi bir mesaj').matched).toBe(true);
-    expect(evaluateRule(rule, '', 'bu bir reklam').matched).toBe(false);
+  it('applies exclude matching options independently of keyword options', () => {
+    // Keywords stay case-insensitive; only the exclude side is made case-sensitive.
+    const rule = base({
+      keywords: ['iphone'],
+      excludeKeywords: ['PRO'],
+      caseSensitiveExclude: true,
+    });
+    // Keyword still matches case-insensitively.
+    expect(evaluateRule(rule, '', 'IPHONE 15').matched).toBe(true);
+    // Lowercase "pro" must NOT trigger the case-sensitive exclude.
+    expect(evaluateRule(rule, '', 'iphone pro max').matched).toBe(true);
+    // Exact-case "PRO" triggers the exclude.
+    expect(evaluateRule(rule, '', 'iphone PRO max').matched).toBe(false);
   });
 
   it('reports the matched keyword', () => {

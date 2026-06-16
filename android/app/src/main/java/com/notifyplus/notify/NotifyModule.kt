@@ -8,6 +8,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -15,6 +18,8 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 /**
  * JS <-> native bridge for notify-plus. Implemented as a legacy bridge module, which runs under the
@@ -306,6 +311,77 @@ class NotifyModule(private val reactContext: ReactApplicationContext) :
     )
   }
 
+  // ---- Scheduled cleanup ----
+
+  /**
+   * Save cleanup settings and schedule (or cancel) a periodic WorkManager task.
+   * The worker writes a cutoff timestamp to SharedPreferences; JS reads and executes the DELETE
+   * via op-sqlite on next app open so FTS5 triggers fire correctly.
+   */
+  @ReactMethod
+  fun scheduleCleanup(interval: String, hour: Int, minute: Int, promise: Promise) {
+    try {
+      rulesStore.putString("cleanup_interval", interval)
+      rulesStore.putString("cleanup_hour", hour.toString())
+      rulesStore.putString("cleanup_minute", minute.toString())
+
+      val wm = WorkManager.getInstance(reactContext)
+      if (interval == "never") {
+        wm.cancelUniqueWork(CLEANUP_WORK_NAME)
+        promise.resolve(true)
+        return
+      }
+
+      val repeatMs: Long = when (interval) {
+        "daily"   -> TimeUnit.DAYS.toMillis(1)
+        "weekly"  -> TimeUnit.DAYS.toMillis(7)
+        "monthly" -> TimeUnit.DAYS.toMillis(30)
+        "yearly"  -> TimeUnit.DAYS.toMillis(365)
+        else      -> { promise.reject("E_CLEANUP", "Unknown interval: $interval"); return }
+      }
+      val flexMs = minOf(30 * 60_000L, repeatMs / 4)
+
+      val cal = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        if (timeInMillis <= System.currentTimeMillis()) {
+          add(Calendar.DAY_OF_YEAR, 1)
+        }
+      }
+      val initialDelayMs = (cal.timeInMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+
+      val request = PeriodicWorkRequestBuilder<CleanupWorker>(
+        repeatMs, TimeUnit.MILLISECONDS,
+        flexMs, TimeUnit.MILLISECONDS,
+      )
+        .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
+        .build()
+
+      wm.enqueueUniquePeriodicWork(
+        CLEANUP_WORK_NAME,
+        ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+        request,
+      )
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("E_CLEANUP", e)
+    }
+  }
+
+  /** Reads the pending cleanup cutoff written by [CleanupWorker], clears it, returns it as Double ms (or -1). */
+  @ReactMethod
+  fun getAndClearCleanupCutoff(promise: Promise) {
+    try {
+      val cutoffStr = rulesStore.getString("cleanup_pending_cutoff", null)
+      if (cutoffStr != null) rulesStore.remove("cleanup_pending_cutoff")
+      promise.resolve(cutoffStr?.toLongOrNull()?.toDouble() ?: -1.0)
+    } catch (e: Exception) {
+      promise.resolve(-1.0)
+    }
+  }
+
   // ---- Pending events queue ----
 
   @ReactMethod
@@ -324,5 +400,7 @@ class NotifyModule(private val reactContext: ReactApplicationContext) :
     /** Must match the <activity-alias> names (".Icon<Variant>") in AndroidManifest.xml. */
     private val ICON_VARIANTS =
       listOf("Orange", "Blue", "Green", "Red", "Purple", "Sky", "Yellow", "Dark")
+
+    private const val CLEANUP_WORK_NAME = "notify_cleanup"
   }
 }

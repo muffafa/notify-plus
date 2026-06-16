@@ -12,7 +12,6 @@ export function emptyRule(): Rule {
     name: 'New rule',
     sourcePackages: [],
     sourceTitleContains: [],
-    mode: 'keywords',
     keywords: [],
     excludeKeywords: [],
     channelId: 'deals_high',
@@ -21,9 +20,14 @@ export function emptyRule(): Rule {
     // native notification on a match.
     suppressOriginal: true,
     searchTitle: true,
-    exactWord: false,
+    exactWordKw: false,
+    exactWordExclude: false,
+    punctuationBoundary: true,
     caseSensitive: false,
     turkishSensitive: false,
+    punctuationBoundaryExclude: true,
+    caseSensitiveExclude: false,
+    turkishSensitiveExclude: false,
     requireAllKeywords: false,
   };
 }

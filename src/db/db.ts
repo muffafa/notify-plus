@@ -22,6 +22,15 @@ import { Notify } from '../native/NotifyModule';
 
 export { toFtsQuery };
 
+function toKinds(kind: MessageKind | MessageKind[]): MessageKind[] {
+  return Array.isArray(kind) ? kind : [kind];
+}
+
+function kindsClause(kinds: MessageKind[], col = 'm.kind'): { sql: string; params: string[] } {
+  const placeholders = kinds.map(() => '?').join(', ');
+  return { sql: `${col} IN (${placeholders})`, params: kinds };
+}
+
 let db: DB | null = null;
 let initPromise: Promise<void> | null = null;
 
@@ -147,31 +156,33 @@ export async function archivePendingEvents(): Promise<number> {
  */
 export async function searchMessages(
   query: string,
-  kind: MessageKind = 'matched',
+  kind: MessageKind | MessageKind[] = 'matched',
   limit = 100,
 ): Promise<ArchivedMessage[]> {
   await initDb();
   const d = database();
-  const match = toFtsQuery(query);
-  if (!match) return recentMessages(kind, limit);
+  const ftsMatch = toFtsQuery(query);
+  if (!ftsMatch) return recentMessages(kind, limit);
+  const { sql, params } = kindsClause(toKinds(kind));
   const res = await d.execute(
     `SELECT ${SELECT_COLS} FROM messages_fts f JOIN messages m ON m.id = f.rowid ` +
-      'WHERE f.search_text MATCH ? AND m.kind = ? ORDER BY f.rank LIMIT ?',
-    [match, kind, limit],
+      `WHERE f.search_text MATCH ? AND ${sql} ORDER BY f.rank LIMIT ?`,
+    [ftsMatch, ...params, limit],
   );
   return rowsToMessages(res);
 }
 
 export async function recentMessages(
-  kind: MessageKind = 'matched',
+  kind: MessageKind | MessageKind[] = 'matched',
   limit = 100,
   offset = 0,
 ): Promise<ArchivedMessage[]> {
   await initDb();
   const d = database();
+  const { sql, params } = kindsClause(toKinds(kind));
   const res = await d.execute(
-    `SELECT ${SELECT_COLS} FROM messages m WHERE m.kind = ? ORDER BY m.posted_at DESC LIMIT ? OFFSET ?`,
-    [kind, limit, offset],
+    `SELECT ${SELECT_COLS} FROM messages m WHERE ${sql} ORDER BY m.posted_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   );
   return rowsToMessages(res);
 }
@@ -187,11 +198,18 @@ export async function deleteMessage(id: number): Promise<void> {
   await database().execute('DELETE FROM messages WHERE id = ?', [id]);
 }
 
-export async function clearMessages(kind?: MessageKind): Promise<void> {
+export async function clearMessages(kind?: MessageKind | MessageKind[]): Promise<void> {
   await initDb();
-  if (kind) {
-    await database().execute('DELETE FROM messages WHERE kind = ?', [kind]);
-  } else {
+  if (!kind) {
     await database().execute('DELETE FROM messages');
+    return;
   }
+  // No table alias is available in a DELETE statement, so reference the bare column.
+  const { sql, params } = kindsClause(toKinds(kind), 'kind');
+  await database().execute(`DELETE FROM messages WHERE ${sql}`, params);
+}
+
+export async function deleteMessagesOlderThan(cutoffMs: number): Promise<void> {
+  await initDb();
+  await database().execute('DELETE FROM messages WHERE posted_at < ?', [cutoffMs]);
 }
