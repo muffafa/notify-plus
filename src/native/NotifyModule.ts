@@ -39,6 +39,7 @@ interface NativeNotify {
   createChannel(configJson: string): Promise<boolean>;
   deleteChannel(id: string): Promise<boolean>;
   getChannelStatus(id: string): Promise<ChannelStatus>;
+  clearPostedNotifications(): Promise<boolean>;
   // Pending events
   drainPendingEvents(): Promise<string>;
   pendingCount(): Promise<number>;
@@ -124,6 +125,8 @@ export const Notify = {
   createChannel: (config: ChannelConfig) => require_().createChannel(JSON.stringify(config)),
   deleteChannel: (id: string) => require_().deleteChannel(id),
   getChannelStatus: (id: string) => require_().getChannelStatus(id),
+  /** Cancel all notifications we've posted (resets the launcher badge to zero). */
+  clearPostedNotifications: () => require_().clearPostedNotifications(),
 
   // ---- Pending events ----
   async drainPendingEvents(): Promise<PendingEvent[]> {

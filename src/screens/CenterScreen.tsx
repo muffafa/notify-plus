@@ -18,6 +18,7 @@ import {
 } from '../db/db';
 import { useNotifyEvents } from '../hooks/useNotifyEvents';
 import { useI18n } from '../i18n/i18n';
+import { Notify } from '../native/NotifyModule';
 import { Muted, SectionTitle } from '../ui/components';
 import { SwipeableRow } from '../ui/SwipeableRow';
 import { colors, radius, space } from '../ui/theme';
@@ -99,6 +100,11 @@ export function CenterScreen({ kinds = ['matched'] }: { kinds?: MessageKind[] })
           setItems([]);
           const toDelete = kindFilter ? [kindFilter] : kinds;
           await clearMessages(toDelete).catch(() => {});
+          // Our loud match re-posts are the only system notifications; cancel them so the
+          // launcher badge resets when the user clears the matched list.
+          if (toDelete.includes('matched')) {
+            await Notify.clearPostedNotifications().catch(() => {});
+          }
         },
       },
     ]);

@@ -114,6 +114,8 @@ export function SettingsScreen({
         style: 'destructive',
         onPress: async () => {
           await clearMessages();
+          // Also cancel our posted system notifications so the launcher badge resets to zero.
+          await Notify.clearPostedNotifications().catch(() => {});
           setCount(0);
         },
       },

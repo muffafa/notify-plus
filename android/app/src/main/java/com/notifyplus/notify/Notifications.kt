@@ -108,6 +108,15 @@ object Notifications {
     manager(context).deleteNotificationChannel(id)
   }
 
+  /**
+   * Cancel every notification this app has posted (our loud match re-posts). The launcher badge
+   * counts active notifications, so this also resets the home-screen badge to zero. Called when the
+   * user clears the in-app Notification Center / history.
+   */
+  fun cancelAllPosted(context: Context) {
+    manager(context).cancelAll()
+  }
+
   /** null => channel not found; true => user disabled the channel (importance NONE). */
   fun isChannelBlocked(context: Context, id: String): Boolean? {
     val channel = manager(context).getNotificationChannel(id) ?: return null

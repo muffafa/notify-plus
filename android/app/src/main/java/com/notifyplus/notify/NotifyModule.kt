@@ -298,6 +298,13 @@ class NotifyModule(private val reactContext: ReactApplicationContext) :
     promise.resolve(true)
   }
 
+  /** Cancel all notifications we've posted, resetting the launcher badge to zero. */
+  @ReactMethod
+  fun clearPostedNotifications(promise: Promise) {
+    Notifications.cancelAllPosted(reactContext)
+    promise.resolve(true)
+  }
+
   /** Resolves "ok" | "blocked" | "missing". */
   @ReactMethod
   fun getChannelStatus(id: String, promise: Promise) {
