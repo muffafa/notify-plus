@@ -36,6 +36,16 @@ data class Rule(
   val channelId: String,
   /** Cancel the original (silent) Telegram notification when this rule matches. */
   val suppressOriginal: Boolean,
+  /** Include the notification title (channel name) in keyword search. Default: true */
+  val searchTitle: Boolean,
+  /** Keywords must appear as whole words surrounded by spaces. Default: false */
+  val exactWord: Boolean,
+  /** Keyword matching is case-sensitive. Default: false */
+  val caseSensitive: Boolean,
+  /** Turkish characters are kept distinct from their Latin equivalents. Default: false */
+  val turkishSensitive: Boolean,
+  /** ALL keywords must be present (AND logic). Default: false = ANY (OR logic) */
+  val requireAllKeywords: Boolean,
 ) {
   fun effectivePackages(): Set<String> =
     if (sourcePackages.isEmpty()) DEFAULT_TELEGRAM_PACKAGES else sourcePackages
@@ -52,6 +62,11 @@ data class Rule(
       excludeKeywords = o.optJSONArray("excludeKeywords").toStringList(),
       channelId = o.optString("channelId", DEFAULT_CHANNEL_ID),
       suppressOriginal = o.optBoolean("suppressOriginal", false),
+      searchTitle = o.optBoolean("searchTitle", true),
+      exactWord = o.optBoolean("exactWord", false),
+      caseSensitive = o.optBoolean("caseSensitive", false),
+      turkishSensitive = o.optBoolean("turkishSensitive", false),
+      requireAllKeywords = o.optBoolean("requireAllKeywords", false),
     )
 
     fun parseList(json: String?): List<Rule> {

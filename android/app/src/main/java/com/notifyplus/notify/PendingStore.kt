@@ -8,10 +8,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Native-owned queue of matched messages. The listener service writes here in real time (it works
- * while the app UI is closed). When the React Native app next runs, it DRAINS this queue into the
- * op-sqlite + FTS5 archive (the searchable Notification Center). Uses Android's built-in SQLite —
- * no FTS needed here, so no extra native SQLite dependency.
+ * Native-owned queue of captured messages (kind = "matched" or "other"). The listener service
+ * writes here in real time (works while the app UI is closed). When the React Native app next
+ * runs, it DRAINS this queue into the op-sqlite + FTS5 archive. Also holds the durable dedup
+ * ("seen") table so already-handled messages don't re-trigger after the app is closed/reopened.
  */
 class PendingStore(context: Context) :
   SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION) {
@@ -21,9 +21,13 @@ class PendingStore(context: Context) :
   }
 
   override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-    // Additive: never drop the dedup ("seen") table on upgrade, or already-handled messages would
-    // re-trigger after an app update.
     createTables(db)
+    // Additive migration: add the kind column to an existing pending_events table.
+    try {
+      db.execSQL("ALTER TABLE pending_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'matched'")
+    } catch (e: Exception) {
+      // column already exists
+    }
   }
 
   private fun createTables(db: SQLiteDatabase) {
@@ -38,13 +42,13 @@ class PendingStore(context: Context) :
         body TEXT,
         matched_keyword TEXT,
         posted_at INTEGER NOT NULL,
-        sbn_key TEXT
+        sbn_key TEXT,
+        kind TEXT NOT NULL DEFAULT 'matched'
       )
       """.trimIndent()
     )
-    // Durable dedup: which individual messages we have already handled. Survives the service
-    // process being killed (app closed) and app updates, so a still-present (unread) Telegram
-    // notification updated with old+new messages does NOT re-trigger the old ones.
+    // Durable dedup. Survives the service process being killed and app updates, so a still-present
+    // (unread) Telegram notification updated with old+new messages can't re-trigger old ones.
     db.execSQL(
       """
       CREATE TABLE IF NOT EXISTS seen (
@@ -57,21 +61,19 @@ class PendingStore(context: Context) :
 
   /**
    * Record [id] as handled. Returns true only if it was NOT seen before (i.e. process it now).
-   * Keeps the table bounded to the most recent [MAX_SEEN] entries.
+   * Uses an explicit existence check rather than SQLite changes(), which is unreliable across
+   * Android's SQLiteDatabase connection pool and caused duplicate notifications.
    */
   @Synchronized
   fun addIfNew(id: String, ts: Long): Boolean {
     val db = writableDatabase
+    val exists = db.rawQuery("SELECT 1 FROM seen WHERE id = ? LIMIT 1", arrayOf(id)).use { c ->
+      c.moveToFirst()
+    }
+    if (exists) return false
     db.execSQL("INSERT OR IGNORE INTO seen(id, ts) VALUES(?, ?)", arrayOf<Any>(id, ts))
-    val inserted = db.rawQuery("SELECT changes()", null).use { c ->
-      if (c.moveToFirst()) c.getInt(0) > 0 else false
-    }
-    if (inserted) {
-      db.execSQL(
-        "DELETE FROM seen WHERE id NOT IN (SELECT id FROM seen ORDER BY ts DESC LIMIT $MAX_SEEN)"
-      )
-    }
-    return inserted
+    db.execSQL("DELETE FROM seen WHERE id NOT IN (SELECT id FROM seen ORDER BY ts DESC LIMIT $MAX_SEEN)")
+    return true
   }
 
   @Synchronized
@@ -84,6 +86,7 @@ class PendingStore(context: Context) :
     matchedKeyword: String,
     postedAt: Long,
     sbnKey: String,
+    kind: String,
   ) {
     val db = writableDatabase
     val values = ContentValues().apply {
@@ -95,9 +98,9 @@ class PendingStore(context: Context) :
       put("matched_keyword", matchedKeyword)
       put("posted_at", postedAt)
       put("sbn_key", sbnKey)
+      put("kind", kind)
     }
     db.insert("pending_events", null, values)
-    // Keep the queue bounded in case the app is not opened for a long time.
     db.execSQL(
       "DELETE FROM pending_events WHERE id NOT IN " +
         "(SELECT id FROM pending_events ORDER BY id DESC LIMIT $MAX_ROWS)"
@@ -120,7 +123,7 @@ class PendingStore(context: Context) :
     try {
       db.rawQuery(
         "SELECT id, rule_id, rule_name, source_package, source_title, body, " +
-          "matched_keyword, posted_at, sbn_key FROM pending_events ORDER BY id ASC",
+          "matched_keyword, posted_at, sbn_key, kind FROM pending_events ORDER BY id ASC",
         null,
       ).use { c ->
         while (c.moveToNext()) {
@@ -135,6 +138,7 @@ class PendingStore(context: Context) :
               put("matchedKeyword", c.getString(6) ?: "")
               put("postedAt", c.getLong(7))
               put("sbnKey", c.getString(8) ?: "")
+              put("kind", c.getString(9) ?: "matched")
             }
           )
         }
@@ -149,7 +153,7 @@ class PendingStore(context: Context) :
 
   companion object {
     private const val DB_NAME = "notify_pending.db"
-    private const val DB_VERSION = 2
+    private const val DB_VERSION = 3
     private const val MAX_ROWS = 5000
     private const val MAX_SEEN = 5000
   }

@@ -23,10 +23,12 @@ const en: Dict = {
   'common.actionNeeded': 'Action needed',
 
   // tabs / titles
-  'tab.deals': 'Deals',
+  'tab.deals': 'Filtered',
+  'tab.other': 'Other',
   'tab.rules': 'Rules',
   'tab.settings': 'Settings',
   'title.center': 'Notification Center',
+  'title.other': 'Other notifications',
   'title.rules': 'Filter Rules',
   'title.settings': 'Settings',
 
@@ -83,13 +85,16 @@ const en: Dict = {
   'ob.diag.noTitle': '(no title)',
 
   // center
-  'center.search': 'Search deals…',
-  'center.count': '{n} deals',
+  'center.search': 'Search filtered…',
+  'center.count': '{n} filtered',
   'center.clearAll': 'Clear all',
-  'center.emptyTitle': 'No deals yet',
+  'center.emptyTitle': 'Nothing filtered yet',
   'center.emptyBody':
-    'Matched deal messages will appear here. Make sure your rules and Telegram setup are configured, then wait for a matching message.',
-  'center.clearMsg': 'Delete every deal in this list?',
+    'Matched messages will appear here. Make sure your rules and Telegram setup are configured, then wait for a matching message.',
+  'center.emptyOtherTitle': 'Nothing here yet',
+  'center.emptyOtherBody':
+    'Telegram messages that do not match any keyword rule will appear here (when "Manage all Telegram notifications" is on).',
+  'center.clearMsg': 'Delete every item in this list?',
 
   // rules
   'rules.subtitle': 'Rules are evaluated top to bottom; the first match wins.',
@@ -113,13 +118,35 @@ const en: Dict = {
   'rules.channelFilterPh': 'e.g. indirim kanalı',
   'rules.alertChannel': 'Alert channel (sound + vibration)',
   'rules.suppress': 'Hide the original Telegram notification on match',
+  'rules.matchOptions': 'Match options',
+  'rules.searchTitle': 'Search in channel name',
+  'rules.searchTitleDesc': 'Include the channel/chat name when matching keywords',
+  'rules.exactWord': 'Whole-word match',
+  'rules.exactWordDesc': 'Keyword must be a whole word surrounded by spaces',
+  'rules.caseSensitive': 'Case sensitive',
+  'rules.caseSensitiveDesc': 'A ≠ a — "iPhone" won\'t match "iphone"',
+  'rules.turkishSensitive': 'Turkish character sensitive',
+  'rules.turkishSensitiveDesc': 'ı ≠ i, ş ≠ s — Turkish chars stay distinct',
+  'rules.requireAll': 'All keywords must match (AND)',
+  'rules.requireAllDesc': 'Every keyword must be present at the same time',
   'rules.test': 'Test a sample message',
   'rules.testPh': 'Paste a sample deal message…',
   'rules.wouldMatch': '✓ Would match',
   'rules.wouldMatchKw': '✓ Would match ("{kw}")',
   'rules.wouldNot': '× Would not match',
   'rules.saveRule': 'Save rule',
+  'rules.shareRule': 'Share this rule',
   'rules.deleteRule': 'Delete rule',
+  'rules.exportAll': 'Export all rules',
+  'rules.import': 'Import rules',
+  'rules.importTitle': 'Import Rules',
+  'rules.importPh': 'Paste exported rule JSON here…',
+  'rules.importAdd': 'Add to existing',
+  'rules.importReplace': 'Replace all',
+  'rules.importError': 'Invalid JSON — paste the exported rule text.',
+  'rules.importFound': '{n} rule(s) found',
+  'rules.kwLimit': 'Max {n} keywords reached',
+  'rules.kwTooLong': 'Max {n} chars per keyword',
 
   // channels (in-app labels)
   'channel.deals_high': 'High-value deals',
@@ -150,11 +177,12 @@ const en: Dict = {
   'set.data': 'Data',
   'set.archived': '{n} archived message(s) on this device.',
   'set.clearHistory': 'Clear history',
-  'set.clearMsg': 'Delete all archived deal messages on this device?',
+  'set.clearMsg': 'Delete all archived messages on this device?',
   'set.privacy': 'Privacy',
   'set.privacyBody':
     'notify-plus processes notifications entirely on your device. It does not log in to Telegram, and it never transmits your notifications or messages off the device.',
   'set.rerun': 'Re-run setup',
+  'set.changelog': 'Changelog',
   'set.language': 'Language',
   'set.brand': 'Logo color',
   'set.brandDesc': 'Set the logo background color as a hex code.',
@@ -162,6 +190,10 @@ const en: Dict = {
   'set.brandReset': 'Reset to orange',
   'set.brandLauncherNote':
     'Tapping a preset swatch also recolors the home-screen icon (may take a few seconds). A custom hex changes only the in-app logo.',
+  'set.manage': 'Telegram notifications',
+  'set.manageAll': 'Manage all Telegram notifications',
+  'set.manageAllDesc':
+    'Hide the original Telegram notification and put non-matching messages in the Other tab. Turn off to act only on keyword matches and leave other Telegram notifications untouched.',
 };
 
 const tr: Dict = {
@@ -174,10 +206,12 @@ const tr: Dict = {
   'common.actionNeeded': 'İşlem gerekli',
 
   // tabs / titles
-  'tab.deals': 'Fırsatlar',
+  'tab.deals': 'Filtrelenenler',
+  'tab.other': 'Diğer',
   'tab.rules': 'Kurallar',
   'tab.settings': 'Ayarlar',
   'title.center': 'Bildirim Merkezi',
+  'title.other': 'Diğer bildirimler',
   'title.rules': 'Filtre Kuralları',
   'title.settings': 'Ayarlar',
 
@@ -234,13 +268,16 @@ const tr: Dict = {
   'ob.diag.noTitle': '(başlık yok)',
 
   // center
-  'center.search': 'Fırsatlarda ara…',
-  'center.count': '{n} fırsat',
+  'center.search': 'Filtrelenenlerde ara…',
+  'center.count': '{n} filtrelenen',
   'center.clearAll': 'Tümünü temizle',
-  'center.emptyTitle': 'Henüz fırsat yok',
+  'center.emptyTitle': 'Henüz filtrelenen yok',
   'center.emptyBody':
-    'Eşleşen fırsat mesajları burada görünecek. Kurallarını ve Telegram ayarını yaptığından emin ol, sonra eşleşen bir mesaj bekle.',
-  'center.clearMsg': 'Bu listedeki tüm fırsatlar silinsin mi?',
+    'Eşleşen mesajlar burada görünecek. Kurallarını ve Telegram ayarını yaptığından emin ol, sonra eşleşen bir mesaj bekle.',
+  'center.emptyOtherTitle': 'Burada henüz bir şey yok',
+  'center.emptyOtherBody':
+    'Hiçbir anahtar kelime kuralına uymayan Telegram mesajları burada görünür ("Tüm Telegram bildirimlerini yönet" açıkken).',
+  'center.clearMsg': 'Bu listedeki tüm öğeler silinsin mi?',
 
   // rules
   'rules.subtitle': 'Kurallar yukarıdan aşağıya değerlendirilir; ilk eşleşen kazanır.',
@@ -264,13 +301,35 @@ const tr: Dict = {
   'rules.channelFilterPh': 'örn. indirim kanalı',
   'rules.alertChannel': 'Uyarı kanalı (ses + titreşim)',
   'rules.suppress': 'Eşleşmede orijinal Telegram bildirimini gizle',
+  'rules.matchOptions': 'Eşleşme seçenekleri',
+  'rules.searchTitle': 'Kanal adında da ara',
+  'rules.searchTitleDesc': 'Kanal/sohbet adını da anahtar kelime aramasına dahil et',
+  'rules.exactWord': 'Tam kelime eşleşmesi',
+  'rules.exactWordDesc': 'Kelime, metinde boşluklarla çevrilmiş tam olarak bulunmalı',
+  'rules.caseSensitive': 'Büyük/küçük harf duyarlı',
+  'rules.caseSensitiveDesc': 'A ≠ a — "iPhone" aranıyorsa "iphone" eşleşmez',
+  'rules.turkishSensitive': 'Türkçe karakter duyarlı',
+  'rules.turkishSensitiveDesc': 'ı ≠ i, ş ≠ s — Türkçe harfler ayrı tutulur',
+  'rules.requireAll': 'Tüm kelimeler eşleşsin (AND)',
+  'rules.requireAllDesc': 'Listedeki tüm kelimeler aynı anda bulunmalı',
   'rules.test': 'Örnek mesajı test et',
   'rules.testPh': 'Örnek bir fırsat mesajı yapıştır…',
   'rules.wouldMatch': '✓ Eşleşir',
   'rules.wouldMatchKw': '✓ Eşleşir ("{kw}")',
   'rules.wouldNot': '× Eşleşmez',
   'rules.saveRule': 'Kuralı kaydet',
+  'rules.shareRule': 'Bu kuralı paylaş',
   'rules.deleteRule': 'Kuralı sil',
+  'rules.exportAll': 'Tüm kuralları dışa aktar',
+  'rules.import': 'Kuralları içe aktar',
+  'rules.importTitle': 'Kural İçe Aktar',
+  'rules.importPh': 'Dışa aktarılan kural JSON\'ını buraya yapıştır…',
+  'rules.importAdd': 'Mevcut kurallara ekle',
+  'rules.importReplace': 'Tümünü değiştir',
+  'rules.importError': 'Geçersiz JSON — dışa aktarılan kural metnini yapıştır.',
+  'rules.importFound': '{n} kural bulundu',
+  'rules.kwLimit': 'En fazla {n} kelime eklenebilir',
+  'rules.kwTooLong': 'Kelime en fazla {n} karakter olabilir',
 
   // channels
   'channel.deals_high': 'Yüksek değerli fırsatlar',
@@ -301,11 +360,12 @@ const tr: Dict = {
   'set.data': 'Veri',
   'set.archived': 'Bu cihazda {n} arşivlenmiş mesaj.',
   'set.clearHistory': 'Geçmişi temizle',
-  'set.clearMsg': 'Bu cihazdaki tüm arşivlenmiş fırsat mesajları silinsin mi?',
+  'set.clearMsg': 'Bu cihazdaki tüm arşivlenmiş mesajlar silinsin mi?',
   'set.privacy': 'Gizlilik',
   'set.privacyBody':
     "notify-plus bildirimleri tamamen cihazında işler. Telegram'a giriş yapmaz ve bildirimlerini ya da mesajlarını cihaz dışına asla göndermez.",
   'set.rerun': 'Kurulumu tekrar çalıştır',
+  'set.changelog': 'Değişiklik günlüğü',
   'set.language': 'Dil',
   'set.brand': 'Logo rengi',
   'set.brandDesc': 'Logo arka plan rengini hex kodu olarak ayarla.',
@@ -313,6 +373,10 @@ const tr: Dict = {
   'set.brandReset': 'Turuncuya sıfırla',
   'set.brandLauncherNote':
     'Hazır renge dokununca ana ekran ikonu da değişir (birkaç saniye sürebilir). Serbest hex sadece uygulama içi logoyu değiştirir.',
+  'set.manage': 'Telegram bildirimleri',
+  'set.manageAll': 'Tüm Telegram bildirimlerini yönet',
+  'set.manageAllDesc':
+    'Orijinal Telegram bildirimini gizler ve eşleşmeyen mesajları Diğer sekmesine koyar. Sadece anahtar kelime eşleşmelerinde işlem yapmak ve diğer Telegram bildirimlerine dokunmamak için kapat.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { tr, en };

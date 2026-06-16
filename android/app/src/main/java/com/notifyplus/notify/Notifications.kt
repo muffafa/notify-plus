@@ -117,12 +117,18 @@ object Notifications {
   fun areNotificationsEnabled(context: Context): Boolean =
     manager(context).areNotificationsEnabled()
 
-  /** Post our own (loud) notification for a matched message. Returns the notification id. */
+  /**
+   * Post our own (loud) notification for a matched message. Returns the notification id.
+   * [originalIntent] is Telegram's own content PendingIntent (captured from the source
+   * notification); when provided we reuse it so tapping our notification opens the original
+   * Telegram chat/message. Falls back to opening notify-plus.
+   */
   fun postMatch(
     context: Context,
     channelId: String,
     title: String,
     body: String,
+    originalIntent: PendingIntent?,
   ): Int {
     val nm = manager(context)
     val effectiveChannel =
@@ -133,15 +139,17 @@ object Notifications {
 
     val notifId = nextNotificationId()
 
-    val launch = Intent(context, MainActivity::class.java).apply {
-      addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    val contentIntent = originalIntent ?: run {
+      val launch = Intent(context, MainActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      }
+      PendingIntent.getActivity(
+        context,
+        notifId,
+        launch,
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+      )
     }
-    val contentIntent = PendingIntent.getActivity(
-      context,
-      notifId,
-      launch,
-      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-    )
 
     val builder = Notification.Builder(context, effectiveChannel)
       .setSmallIcon(R.drawable.ic_notification)

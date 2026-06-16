@@ -20,6 +20,11 @@ export function emptyRule(): Rule {
     // filtered loud alert. Telegram uses one notification per chat, so this clears that chat's
     // native notification on a match.
     suppressOriginal: true,
+    searchTitle: true,
+    exactWord: false,
+    caseSensitive: false,
+    turkishSensitive: false,
+    requireAllKeywords: false,
   };
 }
 

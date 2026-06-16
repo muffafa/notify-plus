@@ -15,7 +15,7 @@
  * search is correct for Turkish regardless of the tokenizer's casing quirks.
  */
 import { open, type DB, type QueryResult, type Scalar } from '@op-engineering/op-sqlite';
-import type { ArchivedMessage, PendingEvent } from '../types';
+import type { ArchivedMessage, MessageKind, PendingEvent } from '../types';
 import { normalize } from '../matching/normalize';
 import { toFtsQuery } from './fts';
 import { Notify } from '../native/NotifyModule';
@@ -28,7 +28,7 @@ let initPromise: Promise<void> | null = null;
 const SELECT_COLS =
   'm.id as id, m.rule_id as ruleId, m.rule_name as ruleName, m.source_package as sourcePackage, ' +
   'm.source_title as sourceTitle, m.body as body, m.matched_keyword as matchedKeyword, ' +
-  'm.posted_at as postedAt';
+  'm.posted_at as postedAt, m.kind as kind';
 
 function database(): DB {
   if (!db) {
@@ -54,9 +54,14 @@ export function initDb(): Promise<void> {
         matched_keyword TEXT,
         posted_at INTEGER NOT NULL,
         sbn_key TEXT,
-        search_text TEXT NOT NULL
+        search_text TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'matched'
       );
     `);
+    // Additive migration for installs created before the "kind" column existed.
+    await d.execute("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'matched';").catch(
+      () => {},
+    );
     await d.execute(
       'CREATE INDEX IF NOT EXISTS idx_messages_posted ON messages(posted_at DESC);',
     );
@@ -101,6 +106,7 @@ function rowsToMessages(res: QueryResult): ArchivedMessage[] {
     body: String(r.body ?? ''),
     matchedKeyword: String(r.matchedKeyword ?? ''),
     postedAt: Number(r.postedAt),
+    kind: (String(r.kind ?? 'matched') as MessageKind),
   }));
 }
 
@@ -111,7 +117,7 @@ export async function insertMessages(events: PendingEvent[]): Promise<void> {
   const d = database();
   const commands: [string, Scalar[]][] = events.map((e) => [
     'INSERT INTO messages (rule_id, rule_name, source_package, source_title, body, ' +
-      'matched_keyword, posted_at, sbn_key, search_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'matched_keyword, posted_at, sbn_key, search_text, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       e.ruleId,
       e.ruleName,
@@ -122,6 +128,7 @@ export async function insertMessages(events: PendingEvent[]): Promise<void> {
       e.postedAt,
       e.sbnKey,
       normalize(`${e.sourceTitle} ${e.body}`),
+      e.kind ?? 'matched',
     ],
   ]);
   await d.executeBatch(commands);
@@ -138,25 +145,33 @@ export async function archivePendingEvents(): Promise<number> {
  * Full-text search the archive, ranked by relevance (BM25 via FTS5 `rank`; lower = better).
  * Falls back to recent messages when the query has no usable tokens.
  */
-export async function searchMessages(query: string, limit = 100): Promise<ArchivedMessage[]> {
+export async function searchMessages(
+  query: string,
+  kind: MessageKind = 'matched',
+  limit = 100,
+): Promise<ArchivedMessage[]> {
   await initDb();
   const d = database();
   const match = toFtsQuery(query);
-  if (!match) return recentMessages(limit);
+  if (!match) return recentMessages(kind, limit);
   const res = await d.execute(
     `SELECT ${SELECT_COLS} FROM messages_fts f JOIN messages m ON m.id = f.rowid ` +
-      'WHERE f.search_text MATCH ? ORDER BY f.rank LIMIT ?',
-    [match, limit],
+      'WHERE f.search_text MATCH ? AND m.kind = ? ORDER BY f.rank LIMIT ?',
+    [match, kind, limit],
   );
   return rowsToMessages(res);
 }
 
-export async function recentMessages(limit = 100, offset = 0): Promise<ArchivedMessage[]> {
+export async function recentMessages(
+  kind: MessageKind = 'matched',
+  limit = 100,
+  offset = 0,
+): Promise<ArchivedMessage[]> {
   await initDb();
   const d = database();
   const res = await d.execute(
-    `SELECT ${SELECT_COLS} FROM messages m ORDER BY m.posted_at DESC LIMIT ? OFFSET ?`,
-    [limit, offset],
+    `SELECT ${SELECT_COLS} FROM messages m WHERE m.kind = ? ORDER BY m.posted_at DESC LIMIT ? OFFSET ?`,
+    [kind, limit, offset],
   );
   return rowsToMessages(res);
 }
@@ -172,7 +187,11 @@ export async function deleteMessage(id: number): Promise<void> {
   await database().execute('DELETE FROM messages WHERE id = ?', [id]);
 }
 
-export async function clearMessages(): Promise<void> {
+export async function clearMessages(kind?: MessageKind): Promise<void> {
   await initDb();
-  await database().execute('DELETE FROM messages');
+  if (kind) {
+    await database().execute('DELETE FROM messages WHERE kind = ?', [kind]);
+  } else {
+    await database().execute('DELETE FROM messages');
+  }
 }

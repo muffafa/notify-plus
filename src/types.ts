@@ -22,6 +22,16 @@ export interface Rule {
   channelId: string;
   /** Cancel the original silent Telegram notification on match. */
   suppressOriginal: boolean;
+  /** Include the notification title (channel/chat name) in keyword search. Default: true */
+  searchTitle: boolean;
+  /** Keywords must appear as whole words surrounded by spaces. Default: false */
+  exactWord: boolean;
+  /** Keyword matching is case-sensitive (A ≠ a). Default: false */
+  caseSensitive: boolean;
+  /** Turkish characters are distinct from their Latin equivalents (ı ≠ i, ş ≠ s). Default: false */
+  turkishSensitive: boolean;
+  /** ALL keywords must be present in the text (AND logic). Default: false = ANY (OR logic) */
+  requireAllKeywords: boolean;
 }
 
 export type Importance = 'min' | 'low' | 'default' | 'high';
@@ -39,7 +49,9 @@ export interface ChannelConfig {
   bypassDnd?: boolean;
 }
 
-/** A matched message queued natively, drained into the op-sqlite archive when the app runs. */
+export type MessageKind = 'matched' | 'other';
+
+/** A captured message queued natively, drained into the op-sqlite archive when the app runs. */
 export interface PendingEvent {
   id: number;
   ruleId: string;
@@ -50,13 +62,14 @@ export interface PendingEvent {
   matchedKeyword: string;
   postedAt: number;
   sbnKey: string;
+  kind: MessageKind;
 }
 
 /** Live event forwarded from the native listener while the RN runtime is alive. */
 export type NotifyEvent =
   | { type: 'service'; connected: boolean }
   | {
-      type: 'matched' | 'captured';
+      type: 'matched' | 'other' | 'captured';
       matched: boolean;
       ruleId: string | null;
       ruleName: string | null;
@@ -79,6 +92,7 @@ export interface ArchivedMessage {
   body: string;
   matchedKeyword: string;
   postedAt: number;
+  kind: MessageKind;
 }
 
 export interface TelegramApp {

@@ -1,6 +1,7 @@
 package com.notifyplus.notify
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
@@ -92,12 +93,17 @@ class NotifyListenerService : NotificationListenerService() {
     // NOT the notification id (which can change between sessions). Persisted in PendingStore so a
     // still-present (unread) Telegram notification can't re-trigger already-handled messages after
     // the app is closed and reopened.
+    // When ON (default), notify-plus "manages" the watched Telegram chats: it hides the original
+    // notification and routes non-matching messages to the "Other" tab.
+    val manageAll = rulesStore.getString("manageAll", "true") != "false"
+    val originalIntent = notification.contentIntent
+
     val base = "$pkg|$normalizedTitle"
     for (msg in messages) {
       val dedupId = if (msg.time > 0L) "$base|t${msg.time}" else "$base|h${msg.text.hashCode()}"
       val ts = if (msg.time > 0L) msg.time else System.currentTimeMillis()
       if (!pendingStore.addIfNew(dedupId, ts)) continue
-      processMessage(pkg, key, title, normalizedTitle, msg, rules, diagnostic)
+      processMessage(pkg, key, title, msg, rules, diagnostic, manageAll, originalIntent)
     }
   }
 
@@ -105,18 +111,18 @@ class NotifyListenerService : NotificationListenerService() {
     pkg: String,
     key: String,
     title: String,
-    normalizedTitle: String,
     msg: Msg,
     rules: List<Rule>,
     diagnostic: Boolean,
+    manageAll: Boolean,
+    originalIntent: PendingIntent?,
   ) {
     val body = msg.text
-    val haystack = TextNormalizer.normalize("$title $body")
 
     var matched: MatchResult? = null
     for (rule in rules) {
-      if (!TextMatcher.sourceMatches(rule, pkg, normalizedTitle)) continue
-      val r = TextMatcher.evaluate(rule, haystack)
+      if (!TextMatcher.sourceMatches(rule, pkg, title)) continue
+      val r = TextMatcher.evaluate(rule, title, body)
       if (r != null) {
         matched = r
         break
@@ -128,7 +134,8 @@ class NotifyListenerService : NotificationListenerService() {
 
     if (matched != null) {
       val rule = matched.rule
-      Notifications.postMatch(this, rule.channelId, title.ifBlank { rule.name }, body)
+      // Reuse Telegram's own content intent so tapping our notification opens the original message.
+      Notifications.postMatch(this, rule.channelId, title.ifBlank { rule.name }, body, originalIntent)
       pendingStore.insert(
         ruleId = rule.id,
         ruleName = rule.name,
@@ -138,21 +145,29 @@ class NotifyListenerService : NotificationListenerService() {
         matchedKeyword = matched.matchedKeyword,
         postedAt = postedAt,
         sbnKey = key,
+        kind = "matched",
       )
-      if (rule.suppressOriginal) {
-        try {
-          cancelNotification(key)
-        } catch (e: Exception) {
-          // ignore
-        }
-      }
+      if (rule.suppressOriginal || manageAll) tryCancel(key)
       NotifyEventBus.emit(
-        capturedJson(true, rule, matched.matchedKeyword, pkg, title, body, generic, postedAt)
+        eventJson("matched", true, rule, matched.matchedKeyword, pkg, title, body, generic, postedAt)
       )
+    } else if (manageAll) {
+      // No keyword match: archive into the "Other" tab and hide the original Telegram notification.
+      pendingStore.insert("", "", pkg, title, body, "", postedAt, key, "other")
+      tryCancel(key)
+      NotifyEventBus.emit(eventJson("other", false, null, "", pkg, title, body, generic, postedAt))
     } else if (diagnostic && pkg in DEFAULT_TELEGRAM_PACKAGES) {
       // Diagnostic only: surface captured-but-unmatched messages so onboarding can confirm we are
       // receiving readable text (vs. a redacted "You have a new message").
-      NotifyEventBus.emit(capturedJson(false, null, "", pkg, title, body, generic, postedAt))
+      NotifyEventBus.emit(eventJson("captured", false, null, "", pkg, title, body, generic, postedAt))
+    }
+  }
+
+  private fun tryCancel(key: String) {
+    try {
+      cancelNotification(key)
+    } catch (e: Exception) {
+      // ignore
     }
   }
 
@@ -197,7 +212,8 @@ class NotifyListenerService : NotificationListenerService() {
       put("connected", connected)
     }.toString()
 
-  private fun capturedJson(
+  private fun eventJson(
+    type: String,
     matched: Boolean,
     rule: Rule?,
     keyword: String,
@@ -207,7 +223,7 @@ class NotifyListenerService : NotificationListenerService() {
     generic: Boolean,
     postedAt: Long,
   ): String = JSONObject().apply {
-    put("type", if (matched) "matched" else "captured")
+    put("type", type)
     put("matched", matched)
     put("ruleId", rule?.id ?: JSONObject.NULL)
     put("ruleName", rule?.name ?: JSONObject.NULL)
