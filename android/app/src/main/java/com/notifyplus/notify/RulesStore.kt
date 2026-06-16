@@ -39,6 +39,10 @@ class RulesStore(context: Context) {
     prefs.edit().putBoolean(PREF_PREFIX + key, value).apply()
   }
 
+  fun remove(key: String) {
+    prefs.edit().remove(PREF_PREFIX + key).apply()
+  }
+
   companion object {
     private const val PREFS_NAME = "notify_rules"
     private const val KEY_RULES = "rules"

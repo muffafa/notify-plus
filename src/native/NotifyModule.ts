@@ -42,6 +42,9 @@ interface NativeNotify {
   // Pending events
   drainPendingEvents(): Promise<string>;
   pendingCount(): Promise<number>;
+  // Scheduled cleanup
+  scheduleCleanup(interval: string, hour: number, minute: number): Promise<boolean>;
+  getAndClearCleanupCutoff(): Promise<number>;
   // NativeEventEmitter bookkeeping
   addListener(eventName: string): void;
   removeListeners(count: number): void;
@@ -128,6 +131,11 @@ export const Notify = {
     return safeParse<PendingEvent[]>(json, []);
   },
   pendingCount: () => require_().pendingCount(),
+
+  // ---- Scheduled cleanup ----
+  scheduleCleanup: (interval: string, hour: number, minute: number) =>
+    require_().scheduleCleanup(interval, hour, minute),
+  getAndClearCleanupCutoff: () => require_().getAndClearCleanupCutoff(),
 };
 
 function safeParse<T>(json: string, fallback: T): T {

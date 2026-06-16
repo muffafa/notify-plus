@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CHANGELOG } from '../changelog';
 import { clearMessages, messageCount } from '../db/db';
 import { useAppStatus } from '../hooks/useAppStatus';
@@ -13,6 +13,14 @@ import { Body, Button, Card, Muted, SectionTitle, StatusRow } from '../ui/compon
 import { Logo } from '../ui/Logo';
 import { colors, radius, space } from '../ui/theme';
 import type { ChannelStatus } from '../types';
+
+const CLEANUP_INTERVAL_KEYS = {
+  never: 'set.cleanupNever',
+  daily: 'set.cleanupDaily',
+  weekly: 'set.cleanupWeekly',
+  monthly: 'set.cleanupMonthly',
+  yearly: 'set.cleanupYearly',
+} as const;
 
 // Preset hex -> launcher icon variant (must match the <activity-alias> names in AndroidManifest).
 const COLOR_VARIANTS: { hex: string; variant: string }[] = [
@@ -36,7 +44,10 @@ export function SettingsScreen({
   const { status, refresh } = useAppStatus();
   const [diagnostic, setDiagnostic] = useState(false);
   const [manageAll, setManageAll] = useState(true);
-  const [changelogOpen, setChangelogOpen] = useState(false);
+  const [openVersions, setOpenVersions] = useState<Set<string>>(new Set());
+  const [cleanupInterval, setCleanupIntervalState] = useState<'never' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('never');
+  const [cleanupHour, setCleanupHour] = useState(3);
+  const [cleanupMinute, setCleanupMinute] = useState(0);
   const [count, setCount] = useState(0);
   const [channelStatuses, setChannelStatuses] = useState<Record<string, ChannelStatus>>({});
   const [hexDraft, setHexDraft] = useState(logoColor);
@@ -65,6 +76,12 @@ export function SettingsScreen({
     try {
       setDiagnostic(await Notify.isDiagnosticMode());
       setManageAll((await Notify.getPref('manageAll')) !== 'false');
+      const ivPref = await Notify.getPref('cleanup_interval');
+      setCleanupIntervalState((ivPref as typeof cleanupInterval) || 'never');
+      const hPref = await Notify.getPref('cleanup_hour');
+      setCleanupHour(hPref ? (parseInt(hPref, 10) || 3) : 3);
+      const mPref = await Notify.getPref('cleanup_minute');
+      setCleanupMinute(mPref ? (parseInt(mPref, 10) || 0) : 0);
       setCount(await messageCount());
       const entries = await Promise.all(
         PRESET_CHANNELS.map(async (c) => [c.id, await Notify.getChannelStatus(c.id)] as const),
@@ -107,6 +124,14 @@ export function SettingsScreen({
     await setOnboardingComplete(false);
     onResetOnboarding();
   }, [onResetOnboarding]);
+
+  const onSaveCleanup = useCallback(async () => {
+    try {
+      await Notify.scheduleCleanup(cleanupInterval, cleanupHour, cleanupMinute);
+    } catch {
+      // ignore if native module unavailable
+    }
+  }, [cleanupInterval, cleanupHour, cleanupMinute]);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.scroll}>
@@ -226,6 +251,55 @@ export function SettingsScreen({
         </View>
       </Card>
 
+      <SectionTitle>{t('set.autoCleanup')}</SectionTitle>
+      <Card>
+        <Muted>{t('set.autoCleanupDesc')}</Muted>
+        <View style={{ height: space(3) }} />
+        <View style={styles.intervalRow}>
+          {(['never', 'daily', 'weekly', 'monthly', 'yearly'] as const).map((iv) => (
+            <Pressable
+              key={iv}
+              style={[styles.intervalPill, cleanupInterval === iv && styles.intervalPillActive]}
+              onPress={() => setCleanupIntervalState(iv)}
+            >
+              <Text style={[styles.intervalText, cleanupInterval === iv && styles.intervalTextActive]}>
+                {t(CLEANUP_INTERVAL_KEYS[iv])}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {cleanupInterval !== 'never' && (
+          <>
+            <View style={{ height: space(3) }} />
+            <Body>{t('set.cleanupTime')}</Body>
+            <View style={{ height: space(2) }} />
+            <View style={styles.timePicker}>
+              <View style={styles.timeUnit}>
+                <TouchableOpacity onPress={() => setCleanupHour((h) => (h - 1 + 24) % 24)} style={styles.timeBtn}>
+                  <Text style={styles.timeBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.timeValue}>{String(cleanupHour).padStart(2, '0')}</Text>
+                <TouchableOpacity onPress={() => setCleanupHour((h) => (h + 1) % 24)} style={styles.timeBtn}>
+                  <Text style={styles.timeBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.timeSep}>:</Text>
+              <View style={styles.timeUnit}>
+                <TouchableOpacity onPress={() => setCleanupMinute((m) => (m - 5 + 60) % 60)} style={styles.timeBtn}>
+                  <Text style={styles.timeBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.timeValue}>{String(cleanupMinute).padStart(2, '0')}</Text>
+                <TouchableOpacity onPress={() => setCleanupMinute((m) => (m + 5) % 60)} style={styles.timeBtn}>
+                  <Text style={styles.timeBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+        <View style={{ height: space(3) }} />
+        <Button title={t('set.cleanupSave')} onPress={onSaveCleanup} />
+      </Card>
+
       <SectionTitle>{t('set.data')}</SectionTitle>
       <Card>
         <Body>{t('set.archived', { n: count })}</Body>
@@ -235,23 +309,36 @@ export function SettingsScreen({
 
       <SectionTitle>{t('set.changelog')}</SectionTitle>
       <Card>
-        {CHANGELOG.map((entry, i) => (
-          <View key={entry.version}>
-            {i > 0 && <View style={styles.clDivider} />}
-            <Pressable style={styles.clHeader} onPress={() => setChangelogOpen((o) => !o)}>
-              <Text style={styles.clVersion}>v{entry.version}</Text>
-              <Muted>{entry.date}</Muted>
-              <Text style={styles.clChevron}>{changelogOpen ? '▲' : '▼'}</Text>
-            </Pressable>
-            {changelogOpen &&
-              (lang === 'tr' ? entry.tr : entry.en).map((item, j) => (
-                <View key={j} style={styles.clItem}>
-                  <Text style={styles.clBullet}>·</Text>
-                  <Muted style={{ flex: 1 }}>{item}</Muted>
-                </View>
-              ))}
-          </View>
-        ))}
+        {CHANGELOG.map((entry, i) => {
+          const open = openVersions.has(entry.version);
+          return (
+            <View key={entry.version}>
+              {i > 0 && <View style={styles.clDivider} />}
+              <Pressable
+                style={styles.clHeader}
+                onPress={() =>
+                  setOpenVersions((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(entry.version)) next.delete(entry.version);
+                    else next.add(entry.version);
+                    return next;
+                  })
+                }
+              >
+                <Text style={styles.clVersion}>v{entry.version}</Text>
+                <Muted>{entry.date}</Muted>
+                <Text style={styles.clChevron}>{open ? '▲' : '▼'}</Text>
+              </Pressable>
+              {open &&
+                (lang === 'tr' ? entry.tr : entry.en).map((item, j) => (
+                  <View key={j} style={styles.clItem}>
+                    <Text style={styles.clBullet}>·</Text>
+                    <Muted style={{ flex: 1 }}>{item}</Muted>
+                  </View>
+                ))}
+            </View>
+          );
+        })}
       </Card>
 
       <SectionTitle>{t('set.privacy')}</SectionTitle>
@@ -292,4 +379,32 @@ const styles = StyleSheet.create({
   clItem: { flexDirection: 'row', gap: space(2), paddingLeft: space(2), marginTop: space(1) },
   clBullet: { color: colors.textDim, lineHeight: 20 },
   clDivider: { height: 1, backgroundColor: colors.border, marginVertical: space(2) },
+  // cleanup
+  intervalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space(2) },
+  intervalPill: {
+    paddingHorizontal: space(3),
+    paddingVertical: space(2),
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card2,
+  },
+  intervalPillActive: { borderColor: colors.primary, backgroundColor: colors.primary + '22' },
+  intervalText: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
+  intervalTextActive: { color: colors.primary },
+  timePicker: { flexDirection: 'row', alignItems: 'center', gap: space(3) },
+  timeUnit: { flexDirection: 'row', alignItems: 'center', gap: space(2) },
+  timeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeBtnText: { color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '600' },
+  timeValue: { color: colors.text, fontSize: 28, fontWeight: '700', minWidth: 44, textAlign: 'center' },
+  timeSep: { color: colors.text, fontSize: 28, fontWeight: '700' },
 });

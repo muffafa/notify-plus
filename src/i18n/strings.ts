@@ -94,24 +94,23 @@ const en: Dict = {
   'center.emptyOtherTitle': 'Nothing here yet',
   'center.emptyOtherBody':
     'Telegram messages that do not match any keyword rule will appear here (when "Manage all Telegram notifications" is on).',
+  'center.emptyExcludedTitle': 'No excluded messages',
+  'center.emptyExcludedBody': 'Messages blocked by an exclude keyword will appear here.',
+  'center.filterAll': 'All',
+  'center.filterExcluded': 'Excluded',
   'center.clearMsg': 'Delete every item in this list?',
 
   // rules
   'rules.subtitle': 'Rules are evaluated top to bottom; the first match wins.',
-  'rules.modeAll': 'All messages from sources',
   'rules.keywordCount': '{n} keyword(s)',
   'rules.empty': 'No rules yet. Add one to start catching deals.',
   'rules.new': '+ New rule',
   'rules.edit': 'Edit rule',
   'rules.name': 'Name',
-  'rules.matchMode': 'Match mode',
-  'rules.byKeywords': 'By keywords',
-  'rules.allFromSources': 'All from sources',
   'rules.keywords': 'Keywords (match if ANY present)',
   'rules.keywordsPh': 'e.g. iphone, fiyat hatası',
   'rules.exclude': 'Exclude keywords (skip if ANY present)',
   'rules.excludePh': 'e.g. kılıf, aksesuar',
-  'rules.allNote': 'Every message from the configured sources will alert.',
   'rules.channelFilter': 'Channel filter (optional)',
   'rules.channelFilterDesc':
     'Only match notifications whose chat/channel title contains any of these. Empty = any Telegram chat.',
@@ -121,8 +120,12 @@ const en: Dict = {
   'rules.matchOptions': 'Match options',
   'rules.searchTitle': 'Search in channel name',
   'rules.searchTitleDesc': 'Include the channel/chat name when matching keywords',
-  'rules.exactWord': 'Whole-word match',
-  'rules.exactWordDesc': 'Keyword must be a whole word surrounded by spaces',
+  'rules.exactWordKw': 'Whole-word — keywords',
+  'rules.exactWordKwDesc': 'Each keyword must be a whole word (not a substring)',
+  'rules.exactWordExclude': 'Whole-word — excluded keywords',
+  'rules.exactWordExcludeDesc': 'Excluded keywords must also be whole words',
+  'rules.punctBoundary': 'Punctuation = word boundary',
+  'rules.punctBoundaryDesc': '. , : ; ! ? ( ) [ ] " \' count as word boundaries',
   'rules.caseSensitive': 'Case sensitive',
   'rules.caseSensitiveDesc': 'A ≠ a — "iPhone" won\'t match "iphone"',
   'rules.turkishSensitive': 'Turkish character sensitive',
@@ -134,6 +137,7 @@ const en: Dict = {
   'rules.wouldMatch': '✓ Would match',
   'rules.wouldMatchKw': '✓ Would match ("{kw}")',
   'rules.wouldNot': '× Would not match',
+  'rules.excludedBy': '× Excluded by "{kw}"',
   'rules.saveRule': 'Save rule',
   'rules.shareRule': 'Share this rule',
   'rules.deleteRule': 'Delete rule',
@@ -194,6 +198,18 @@ const en: Dict = {
   'set.manageAll': 'Manage all Telegram notifications',
   'set.manageAllDesc':
     'Hide the original Telegram notification and put non-matching messages in the Other tab. Turn off to act only on keyword matches and leave other Telegram notifications untouched.',
+
+  // auto cleanup
+  'set.autoCleanup': 'Auto Cleanup',
+  'set.autoCleanupDesc':
+    'Automatically delete archived notifications older than the chosen interval. The cleanup runs at the set time each day/week/etc.',
+  'set.cleanupNever': 'Never',
+  'set.cleanupDaily': 'Daily',
+  'set.cleanupWeekly': 'Weekly',
+  'set.cleanupMonthly': 'Monthly',
+  'set.cleanupYearly': 'Yearly',
+  'set.cleanupTime': 'Cleanup time',
+  'set.cleanupSave': 'Save schedule',
 };
 
 const tr: Dict = {
@@ -277,24 +293,23 @@ const tr: Dict = {
   'center.emptyOtherTitle': 'Burada henüz bir şey yok',
   'center.emptyOtherBody':
     'Hiçbir anahtar kelime kuralına uymayan Telegram mesajları burada görünür ("Tüm Telegram bildirimlerini yönet" açıkken).',
+  'center.emptyExcludedTitle': 'Hariç tutulan mesaj yok',
+  'center.emptyExcludedBody': 'Hariç kelimesiyle engellenen mesajlar burada görünür.',
+  'center.filterAll': 'Tümü',
+  'center.filterExcluded': 'Hariç tutulanlar',
   'center.clearMsg': 'Bu listedeki tüm öğeler silinsin mi?',
 
   // rules
   'rules.subtitle': 'Kurallar yukarıdan aşağıya değerlendirilir; ilk eşleşen kazanır.',
-  'rules.modeAll': 'Kaynaklardan tüm mesajlar',
   'rules.keywordCount': '{n} anahtar kelime',
   'rules.empty': 'Henüz kural yok. Fırsatları yakalamak için bir tane ekle.',
   'rules.new': '+ Yeni kural',
   'rules.edit': 'Kuralı düzenle',
   'rules.name': 'Ad',
-  'rules.matchMode': 'Eşleşme modu',
-  'rules.byKeywords': 'Anahtar kelimeyle',
-  'rules.allFromSources': 'Kaynaklardan tümü',
   'rules.keywords': 'Anahtar kelimeler (HERHANGİ biri varsa eşleşir)',
   'rules.keywordsPh': 'örn. iphone, fiyat hatası',
   'rules.exclude': 'Hariç tutulan kelimeler (HERHANGİ biri varsa atla)',
   'rules.excludePh': 'örn. kılıf, aksesuar',
-  'rules.allNote': 'Ayarlı kaynaklardan gelen her mesaj uyarı verir.',
   'rules.channelFilter': 'Kanal filtresi (isteğe bağlı)',
   'rules.channelFilterDesc':
     'Yalnızca sohbet/kanal başlığı bunlardan birini içeren bildirimlerle eşleş. Boş = tüm Telegram sohbetleri.',
@@ -304,8 +319,12 @@ const tr: Dict = {
   'rules.matchOptions': 'Eşleşme seçenekleri',
   'rules.searchTitle': 'Kanal adında da ara',
   'rules.searchTitleDesc': 'Kanal/sohbet adını da anahtar kelime aramasına dahil et',
-  'rules.exactWord': 'Tam kelime eşleşmesi',
-  'rules.exactWordDesc': 'Kelime, metinde boşluklarla çevrilmiş tam olarak bulunmalı',
+  'rules.exactWordKw': 'Tam kelime — anahtar kelimeler',
+  'rules.exactWordKwDesc': 'Her anahtar kelime tam kelime olmalı (alt dize olmamalı)',
+  'rules.exactWordExclude': 'Tam kelime — hariç tutulanlar',
+  'rules.exactWordExcludeDesc': 'Hariç tutulan kelimeler de tam kelime olarak aranır',
+  'rules.punctBoundary': 'Noktalama = kelime sınırı',
+  'rules.punctBoundaryDesc': '. , : ; ! ? ( ) [ ] " \' kelime sınırı sayılır',
   'rules.caseSensitive': 'Büyük/küçük harf duyarlı',
   'rules.caseSensitiveDesc': 'A ≠ a — "iPhone" aranıyorsa "iphone" eşleşmez',
   'rules.turkishSensitive': 'Türkçe karakter duyarlı',
@@ -317,6 +336,7 @@ const tr: Dict = {
   'rules.wouldMatch': '✓ Eşleşir',
   'rules.wouldMatchKw': '✓ Eşleşir ("{kw}")',
   'rules.wouldNot': '× Eşleşmez',
+  'rules.excludedBy': '× "{kw}" hariç tuttu',
   'rules.saveRule': 'Kuralı kaydet',
   'rules.shareRule': 'Bu kuralı paylaş',
   'rules.deleteRule': 'Kuralı sil',
@@ -377,6 +397,18 @@ const tr: Dict = {
   'set.manageAll': 'Tüm Telegram bildirimlerini yönet',
   'set.manageAllDesc':
     'Orijinal Telegram bildirimini gizler ve eşleşmeyen mesajları Diğer sekmesine koyar. Sadece anahtar kelime eşleşmelerinde işlem yapmak ve diğer Telegram bildirimlerine dokunmamak için kapat.',
+
+  // otomatik temizleme
+  'set.autoCleanup': 'Otomatik Temizleme',
+  'set.autoCleanupDesc':
+    'Belirlenen süreden eski arşivlenmiş bildirimleri otomatik sil. Temizleme her gün/hafta/ay/yıl belirlenen saatte çalışır.',
+  'set.cleanupNever': 'Asla',
+  'set.cleanupDaily': 'Günlük',
+  'set.cleanupWeekly': 'Haftalık',
+  'set.cleanupMonthly': 'Aylık',
+  'set.cleanupYearly': 'Yıllık',
+  'set.cleanupTime': 'Temizleme saati',
+  'set.cleanupSave': 'Zamanlamayı kaydet',
 };
 
 export const dictionaries: Record<Lang, Dict> = { tr, en };

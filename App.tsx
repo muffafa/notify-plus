@@ -13,8 +13,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { archivePendingEvents, initDb } from './src/db/db';
+import { archivePendingEvents, deleteMessagesOlderThan, initDb } from './src/db/db';
 import { I18nProvider, useI18n } from './src/i18n/i18n';
+import { Notify } from './src/native/NotifyModule';
 import { ensurePresetChannels } from './src/rules/channels';
 import { getOnboardingComplete } from './src/store/prefs';
 import { CenterScreen } from './src/screens/CenterScreen';
@@ -40,29 +41,42 @@ function AppInner(): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>('loading');
   const [tab, setTab] = useState<Tab>('center');
 
+  const runPendingCleanup = useCallback(async () => {
+    try {
+      const cutoff = await Notify.getAndClearCleanupCutoff();
+      if (cutoff > 0) await deleteMessagesOlderThan(cutoff);
+    } catch {
+      // ignore: native module may not be available
+    }
+  }, []);
+
   const bootstrap = useCallback(async () => {
     try {
       await ensurePresetChannels();
       await initDb();
       await archivePendingEvents();
+      await runPendingCleanup();
     } catch {
       // native module not available until the Android app is rebuilt; UI still renders
     }
     const done = await getOnboardingComplete().catch(() => false);
     setPhase(done ? 'app' : 'onboarding');
-  }, []);
+  }, [runPendingCleanup]);
 
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
 
-  // Drain the native queue whenever the app comes to the foreground.
+  // Drain the native queue and run any pending cleanup whenever the app comes to the foreground.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') archivePendingEvents().catch(() => {});
+      if (s === 'active') {
+        archivePendingEvents().catch(() => {});
+        runPendingCleanup();
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [runPendingCleanup]);
 
   const activeTitleKey = TABS.find((tb) => tb.key === tab)?.titleKey ?? '';
   const activeTitle = activeTitleKey ? t(activeTitleKey) : '';
@@ -86,8 +100,8 @@ function AppInner(): React.JSX.Element {
               <Text style={styles.header}>{activeTitle}</Text>
             </View>
             <View style={styles.content}>
-              {tab === 'center' && <CenterScreen kind="matched" />}
-              {tab === 'other' && <CenterScreen kind="other" />}
+              {tab === 'center' && <CenterScreen kinds={['matched']} />}
+              {tab === 'other' && <CenterScreen kinds={['other', 'excluded']} />}
               {tab === 'rules' && <RulesScreen />}
               {tab === 'settings' && (
                 <SettingsScreen onResetOnboarding={() => setPhase('onboarding')} />
